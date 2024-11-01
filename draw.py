@@ -25,4 +25,7 @@ def draw_line(
     _y1 = int(y1)
     _x2 = int(x2)
     _y2 = int(y2)
-    gfxdraw.line(window, _x1, _y1, _x2, _y2, color)
+    try:
+        gfxdraw.line(window, _x1, _y1, _x2, _y2, color)
+    except OverflowError:
+        pass

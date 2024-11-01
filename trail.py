@@ -214,7 +214,7 @@ class SmoothTrailWithGlow:
             max(1, int(width / 8)),  # Thin line for smooth blending
         )
 
-    def draw(self, window: pygame.Surface):
+    def draw(self, window: pygame.Surface, viewport):
         if len(self.trail_points) < 2:
             return
 
@@ -226,8 +226,13 @@ class SmoothTrailWithGlow:
         # Draw the glow effect
         glow_width = self._line_width + self._glow_radius * 2
 
-        for i, point in enumerate(self.trail_points):
-            progress = i / len(self.trail_points)
+        transformed_points = [
+            (*viewport.transform(x, y), vel_x, vel_y)
+            for x, y, vel_x, vel_y in self.trail_points
+        ]
+
+        for i, point in enumerate(transformed_points):
+            progress = i / len(transformed_points)
             alpha = int(155 * progress)
 
             # Draw multiple perpendicular glow lines with different widths
