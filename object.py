@@ -4,10 +4,6 @@ import math
 from dataclasses import dataclass
 from typing import Callable, Optional, Tuple
 
-import pygame
-
-from draw import draw_circle
-
 
 class PolarVector:
     def __init__(self, magnitude: float, angle: Angle):
@@ -129,6 +125,9 @@ class CircleBody:
 
         # Update listener callback
         self._update_listeners: list[Callable[[CircleBody], None]] = []
+
+    def __eq__(self, other) -> bool:
+        return id(self) == id(other)
 
     @property
     def x(self) -> float:

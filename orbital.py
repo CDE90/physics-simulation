@@ -42,18 +42,39 @@ orbit_force = orbital_force(
 )
 circle.set_force_callback(orbit_force)
 
-circles = [circle]
-circles_trails = [
-    SmoothTrailWithGlow(circle, max_length=1000, color=WHITE, width=1, glow_radius=15)
-]
+
+class CircleContainer:
+    def __init__(
+        self,
+        circle: CircleBody,
+        trail: Trail | SmoothTrail | SmoothTrailWithGlow,
+        circle_color: tuple,
+    ):
+        self.circle = circle
+        self.trail = trail
+        self.circle_color = circle_color
+
+
+circles: list[CircleContainer] = []
+
+circles.append(
+    CircleContainer(
+        circle=circle,
+        trail=SmoothTrailWithGlow(
+            circle, max_length=1000, color=RED, width=1, glow_radius=15
+        ),
+        circle_color=BLUE,
+    )
+)
+
 running = True
 accumulated_time: float = 0
 
 
 def draw_debug_vectors(window, circle: CircleBody):
     """Draw velocity and acceleration vectors for debugging"""
-    # Draw orbit center
-    draw_circle(window, center_x, center_y, 5, RED)
+    # # Draw orbit center
+    # draw_circle(window, center_x, center_y, 5, RED)
 
     # Draw velocity vector (green)
     vel_scale = 1
@@ -97,19 +118,28 @@ while running:
         circle.update(dt)
 
     # Draw everything
-    for circle, trail in zip(circles, circles_trails):
+    for circle_container in circles:
         # Draw orbit path (optional)
         # draw_circle(
         #     window, center_x, center_y, int(orbit_radius), (50, 50, 50), filled=False
         # )
 
+        circle = circle_container.circle
+        trail = circle_container.trail
+
         trail.draw(window)
 
         # Draw the circle
-        draw_circle(window, int(circle.x), int(circle.y), circle.radius, WHITE)
+        draw_circle(
+            window,
+            int(circle.x),
+            int(circle.y),
+            circle.radius,
+            circle_container.circle_color,
+        )
 
         # Draw debug vectors
-        # draw_debug_vectors(window, circle)
+        draw_debug_vectors(window, circle)
 
         # Print debug info
         print(
