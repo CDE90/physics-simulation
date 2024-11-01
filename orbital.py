@@ -73,8 +73,8 @@ accumulated_time: float = 0
 
 def draw_debug_vectors(window, circle: CircleBody):
     """Draw velocity and acceleration vectors for debugging"""
-    # # Draw orbit center
-    # draw_circle(window, center_x, center_y, 5, RED)
+    # Draw orbit center
+    draw_circle(window, center_x, center_y, 5, RED)
 
     # Draw velocity vector (green)
     vel_scale = 1
@@ -120,9 +120,9 @@ while running:
     # Draw everything
     for circle_container in circles:
         # Draw orbit path (optional)
-        # draw_circle(
-        #     window, center_x, center_y, int(orbit_radius), (50, 50, 50), filled=False
-        # )
+        draw_circle(
+            window, center_x, center_y, int(orbit_radius), (50, 50, 50), filled=False
+        )
 
         circle = circle_container.circle
         trail = circle_container.trail
