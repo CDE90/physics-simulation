@@ -1,7 +1,10 @@
+import math
+
 import pygame
 
-import math
-from object import CircleBody, PolarVector, Angle, orbital_force
+from draw import draw_circle, draw_line
+from object import Angle, CircleBody, PolarVector, orbital_force
+from trail import SmoothTrail, SmoothTrailWithGlow, Trail
 
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
@@ -23,21 +26,26 @@ center_x, center_y = width // 2, height // 2
 orbit_radius = 200
 circle = CircleBody(x=center_x + orbit_radius, y=center_y, radius=20, mass=1.0)
 
-# Calculate proper initial velocity for circular orbit
-# v = sqrt(GM/r) for circular orbit
-force_magnitude = 400000  # Increased for more noticeable effect
-orbit_velocity = math.sqrt(force_magnitude / (orbit_radius * circle.mass))
+# Calculate proper initial velocity for stable circular orbit
+# For a circular orbit, centripetal force = gravitational force
+# v = sqrt(GM/r) where G*M is our force_magnitude
+force_magnitude = 200000  # Reduced for stability
+orbit_velocity = math.sqrt(force_magnitude / orbit_radius)  # Simplified calculation
 
-# Set initial velocity perpendicular to radius (90 degrees to achieve counterclockwise orbit)
-circle.velocity = PolarVector(orbit_velocity, Angle(90))
+# Set initial velocity perpendicular to radius
+initial_angle = Angle(90)  # 90 degrees for counterclockwise orbit
+circle.velocity = PolarVector(orbit_velocity, initial_angle)
 
-# Set up orbital force
+# Set up orbital force with proper scaling
 orbit_force = orbital_force(
     center_x=center_x, center_y=center_y, magnitude=force_magnitude
 )
 circle.set_force_callback(orbit_force)
 
 circles = [circle]
+circles_trails = [
+    SmoothTrailWithGlow(circle, max_length=1000, color=WHITE, width=1, glow_radius=15)
+]
 running = True
 accumulated_time: float = 0
 
@@ -45,37 +53,36 @@ accumulated_time: float = 0
 def draw_debug_vectors(window, circle: CircleBody):
     """Draw velocity and acceleration vectors for debugging"""
     # Draw orbit center
-    pygame.draw.circle(window, RED, (center_x, center_y), 5)
+    draw_circle(window, center_x, center_y, 5, RED)
 
     # Draw velocity vector (green)
     vel_scale = 1
     end_x = circle.x + circle.velocity.x * vel_scale
     end_y = circle.y + circle.velocity.y * vel_scale
-    pygame.draw.line(window, GREEN, (circle.x, circle.y), (end_x, end_y), 2)
+    draw_line(window, circle.x, circle.y, end_x, end_y, GREEN)
 
     # Draw acceleration vector (red)
     acc_scale = 2
     if circle.acceleration.magnitude > 0:
         acc_end_x = circle.x + circle.acceleration.x * acc_scale
         acc_end_y = circle.y + circle.acceleration.y * acc_scale
-        pygame.draw.line(window, RED, (circle.x, circle.y), (acc_end_x, acc_end_y), 2)
+        draw_line(window, circle.x, circle.y, acc_end_x, acc_end_y, RED)
 
     # Draw force vector (white)
     force_scale = 1
     if circle.last_force.magnitude > 0:
         force_end_x = circle.x + circle.last_force.x * force_scale
         force_end_y = circle.y + circle.last_force.y * force_scale
-        pygame.draw.line(
-            window, WHITE, (circle.x, circle.y), (force_end_x, force_end_y), 2
-        )
+        draw_line(window, circle.x, circle.y, force_end_x, force_end_y, WHITE)
 
 
 FPS = 60
 PHYSICS_STEPS_PER_FRAME = 8  # Simulate physics multiple times per frame
+dt = 1 / (FPS * PHYSICS_STEPS_PER_FRAME)  # Smaller time step
 
 
 while running:
-    window.fill(BLACK)
+    window.fill(background_color)
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -86,24 +93,23 @@ while running:
     accumulated_time += clock.get_time() / 1000.0
 
     # Update physics
-    while accumulated_time >= dt:
-        for _ in range(PHYSICS_STEPS_PER_FRAME):
-            for circle in circles:
-                circle.update(dt)
-        accumulated_time -= dt
+    for _ in range(PHYSICS_STEPS_PER_FRAME):
+        circle.update(dt)
 
     # Draw everything
-    for circle in circles:
+    for circle, trail in zip(circles, circles_trails):
         # Draw orbit path (optional)
-        pygame.draw.circle(
-            window, (50, 50, 50), (center_x, center_y), int(orbit_radius), 1
-        )
+        # draw_circle(
+        #     window, center_x, center_y, int(orbit_radius), (50, 50, 50), filled=False
+        # )
+
+        trail.draw(window)
 
         # Draw the circle
-        pygame.draw.circle(window, BLUE, (int(circle.x), int(circle.y)), circle.radius)
+        draw_circle(window, int(circle.x), int(circle.y), circle.radius, WHITE)
 
         # Draw debug vectors
-        draw_debug_vectors(window, circle)
+        # draw_debug_vectors(window, circle)
 
         # Print debug info
         print(

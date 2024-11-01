@@ -4,6 +4,10 @@ import math
 from dataclasses import dataclass
 from typing import Callable, Optional, Tuple
 
+import pygame
+
+from draw import draw_circle
+
 
 class PolarVector:
     def __init__(self, magnitude: float, angle: Angle):
@@ -116,80 +120,95 @@ class CircleBody:
         self.velocity = PolarVector(0, Angle(0))
         self.acceleration = PolarVector(0, Angle(0))
         self.applied_force = PolarVector(0, Angle(0))
-        self.last_force = PolarVector(0, Angle(0))  # Store last force for debugging
+        self.last_force = PolarVector(0, Angle(0))
 
         # Force calculation callback
         self._force_callback: Optional[Callable[[CircleBody, float], PolarVector]] = (
             None
         )
 
+        # Update listener callback
+        self._update_listeners: list[Callable[[CircleBody], None]] = []
+
     @property
     def x(self) -> float:
-        """Get x coordinate from polar position"""
         return self.position.x
 
     @property
     def y(self) -> float:
-        """Get y coordinate from polar position"""
         return self.position.y
 
     @property
     def cartesian_position(self) -> Tuple[float, float]:
-        """Get position as cartesian coordinates"""
         return (self.x, self.y)
 
     def set_force_callback(self, callback: Callable[[CircleBody, float], PolarVector]):
-        """
-        Set a callback that will be called during update to calculate forces.
-        Callback should take (circle_body, dt) and return a PolarVector force.
-        """
         self._force_callback = callback
 
+    def add_update_listener(self, listener: Callable[[CircleBody], None]):
+        self._update_listeners.append(listener)
+
     def apply_force(self, force: PolarVector):
-        """Apply an instantaneous force to the body"""
         self.applied_force = force
-        self.last_force = force  # Store for debugging
+        self.last_force = force
 
     def get_state(self) -> PhysicsState:
-        """Get the current physics state"""
         return PhysicsState(
             position=self.position,
             velocity=self.velocity,
             acceleration=self.acceleration,
-            applied_force=self.last_force,  # Use last force for debugging
+            applied_force=self.last_force,
         )
+
+    def calculate_acceleration(self, force: PolarVector) -> PolarVector:
+        """Calculate acceleration from force (F = ma)"""
+        if force.magnitude > 0:
+            return PolarVector(force.magnitude / self.mass, force.angle)
+        return PolarVector(0, Angle(0))
 
     def update(self, dt: float):
         """
-        Update the physics state for this time step.
-        Args:
-            dt: Time step in seconds
+        Update the physics state using Velocity Verlet integration.
+        This method is more stable for orbital motion than basic Euler integration.
         """
-        # Get force from callback if one is set
+        # Get force at current position
         if self._force_callback:
             force = self._force_callback(self, dt)
             self.apply_force(force)
 
-        # Calculate acceleration from force (F = ma)
-        if self.applied_force.magnitude > 0:
-            self.acceleration = PolarVector(
-                self.applied_force.magnitude / self.mass, self.applied_force.angle
-            )
+        # Calculate current acceleration
+        self.acceleration = self.calculate_acceleration(self.applied_force)
 
-        # Update velocity using acceleration
-        # v = v0 + at
-        new_vel_x = self.velocity.x + self.acceleration.x * dt
-        new_vel_y = self.velocity.y + self.acceleration.y * dt
-        self.velocity = PolarVector.from_cartesian(new_vel_x, new_vel_y)
-
-        # Update position using velocity
-        # x = x0 + vt + (1/2)at^2
+        # Update position using current velocity and acceleration
         new_x = self.x + self.velocity.x * dt + 0.5 * self.acceleration.x * dt * dt
         new_y = self.y + self.velocity.y * dt + 0.5 * self.acceleration.y * dt * dt
-        self.position = PolarVector.from_cartesian(new_x, new_y)
 
-        # Reset applied force after applying it, but keep last_force for debugging
+        # Calculate new force at updated position
+        self.position = PolarVector.from_cartesian(new_x, new_y)
+        if self._force_callback:
+            new_force = self._force_callback(self, dt)
+        else:
+            new_force = PolarVector(0, Angle(0))
+
+        # Calculate new acceleration
+        new_acceleration = self.calculate_acceleration(new_force)
+
+        # Update velocity using average of accelerations
+        new_vel_x = (
+            self.velocity.x + 0.5 * (self.acceleration.x + new_acceleration.x) * dt
+        )
+        new_vel_y = (
+            self.velocity.y + 0.5 * (self.acceleration.y + new_acceleration.y) * dt
+        )
+
+        # Update state
+        self.velocity = PolarVector.from_cartesian(new_vel_x, new_vel_y)
+        self.acceleration = new_acceleration
         self.applied_force = PolarVector(0, Angle(0))
+
+        # Update listeners
+        for listener in self._update_listeners:
+            listener(self)
 
     def apply_drag(self, coefficient: float = 0.1):
         """Apply drag force opposite to velocity"""
