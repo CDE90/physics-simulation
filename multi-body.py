@@ -141,6 +141,7 @@ class Viewport:
         self.height = height
         self.offset_x: float = 0
         self.offset_y: float = 0
+        self.lerp_factor: float = 0.2
 
     def update(self, circles: list[CircleContainer]):
         # Calculate center of mass (or average position)
@@ -159,8 +160,11 @@ class Viewport:
             com_y /= total_mass
 
             # Calculate desired offset to center the view on COM
-            self.offset_x = com_x - self.width / 2
-            self.offset_y = com_y - self.height / 2
+            target_offset_x = com_x - self.width / 2
+            target_offset_y = com_y - self.height / 2
+
+            self.offset_x += (target_offset_x - self.offset_x) * self.lerp_factor
+            self.offset_y += (target_offset_y - self.offset_y) * self.lerp_factor
 
     def transform(self, x: float, y: float) -> tuple[float, float]:
         """Transform world coordinates to screen coordinates"""
